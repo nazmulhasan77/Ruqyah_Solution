@@ -1,0 +1,809 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/theme/app_theme.dart';
+import '../core/providers/theme_provider.dart';
+import 'ruqyah_list_page.dart';
+import 'ruqyah_faq_page.dart';
+import 'ruqyah_dua_page.dart';
+import 'ruqyah_diagnosis_page.dart';
+import 'ruqyah_audio_page.dart';
+import 'ruqyah_gosol_page.dart';
+import 'ruqyah_detox_page.dart';
+import 'promotion.dart';
+import 'developer.dart';
+
+// ═══════════════════════════════════════════════════════════════
+// Ruqyah Home Page
+// ═══════════════════════════════════════════════════════════════
+
+class RuqyahHomePage extends StatefulWidget {
+  const RuqyahHomePage({super.key});
+
+  @override
+  State<RuqyahHomePage> createState() => _RuqyahHomePageState();
+}
+
+class _RuqyahHomePageState extends State<RuqyahHomePage>
+    with SingleTickerProviderStateMixin {
+  static const _apiUrl =
+      'https://raw.githubusercontent.com/prodhan2/App_Backend_Data/main/MyApi/rukaiya.json';
+
+  List<RuqyahChapter> _notes = [];
+  List<RuqyahChapter> _ayat = [];
+  bool _loading = true;
+  bool _offline = false;
+
+  late AnimationController _animCtrl;
+  late Animation<double> _fadeAnim;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _fetchData();
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchData() async {
+    setState(() => _loading = true);
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString('ruqyah_cache');
+    if (cached != null) _parseAndSet(cached, fromCache: true);
+    try {
+      final response = await http
+          .get(Uri.parse(_apiUrl))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final raw = utf8.decode(response.bodyBytes);
+        await prefs.setString('ruqyah_cache', raw);
+        _parseAndSet(raw, fromCache: false);
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        _offline = _notes.isNotEmpty || _ayat.isNotEmpty;
+      });
+    }
+  }
+
+  void _parseAndSet(String raw, {required bool fromCache}) {
+    try {
+      final Map<String, dynamic> jsonMap = json.decode(raw);
+      final notes = _parseList(jsonMap['notes']);
+      final ayat = _parseList(jsonMap['ayat']);
+      if (mounted) {
+        setState(() {
+          _notes = notes;
+          _ayat = ayat;
+          _loading = false;
+          _offline = fromCache;
+        });
+        _animCtrl.forward(from: 0);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<RuqyahChapter> _parseList(dynamic raw) {
+    if (raw == null || raw is! List) return [];
+    return raw
+        .map<RuqyahChapter>((item) {
+          if (item is String) {
+            try {
+              return RuqyahChapter.fromJson(
+                json.decode(item) as Map<String, dynamic>,
+              );
+            } catch (_) {
+              return const RuqyahChapter(id: '', title: '', body: '');
+            }
+          } else if (item is Map<String, dynamic>) {
+            return RuqyahChapter.fromJson(item);
+          }
+          return const RuqyahChapter(id: '', title: '', body: '');
+        })
+        .where((c) => c.title.isNotEmpty)
+        .toList();
+  }
+
+  // ── Menu items data ──────────────────────────────────────────
+  static const List<Map<String, dynamic>> _menuItems = [
+    {'icon': '🔍', 'title': 'সেলফ ডায়াগনেসিস', 'color': Color(0xFFDC2626)},
+    {'icon': '❓', 'title': 'প্রশ্ন ও উত্তর', 'color': Color(0xFF059669)},
+    {
+      'icon': '🤲',
+      'title': 'মাসনুন আমল (নিরাপত্তার দোয়া)',
+      'color': Color(0xFFD97706),
+    },
+    {'icon': '🎵', 'title': 'রুকইয়াহ অডিও', 'color': Color(0xFF7C3AED)},
+    {'icon': '📿', 'title': 'রুকইয়াহ আয়াত', 'color': Color(0xFF0891B2)},
+    {'icon': '💧', 'title': 'রুকইয়াহ গোসল', 'color': Color(0xFF06B6D4)},
+    {'icon': '🌿', 'title': 'ডিটক্স রুকইয়াহ', 'color': Color(0xFF10B981)},
+    {'icon': '📖', 'title': 'রুকইয়াহ নোটস', 'color': Color(0xFF6C3CE1)},
+    {'icon': '🏥', 'title': 'Ruqyah Center Info', 'color': Color(0xFF0EA5E9)},
+    {'icon': '💻', 'title': 'Developer Info', 'color': Color(0xFF2563EB)},
+  ];
+
+  void _navigateFromMenu(int index) {
+    Navigator.pop(context); // close drawer
+    switch (index) {
+      case 0:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahDiagnosisPage()),
+        );
+        break;
+      case 1:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahFaqPage()),
+        );
+        break;
+      case 2:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahDuaPage()),
+        );
+        break;
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahAudioPage()),
+        );
+        break;
+      case 4:
+        _openPage(isNotes: false);
+        break;
+      case 5:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahGosolPage()),
+        );
+        break;
+      case 6:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahDetoxPage()),
+        );
+        break;
+      case 7:
+        _openPage(isNotes: true);
+        break;
+      case 8:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahPromotionPage()),
+        );
+        break;
+      case 9:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RuqyahDeveloperInfoPage()),
+        );
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDark;
+    final bg = isDark ? AppColors.darkBg : AppColors.lightBg;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: bg,
+      drawer: _buildDrawer(isDark),
+      appBar: _buildAppBar(),
+      body: _loading
+          ? _buildLoading()
+          : FadeTransition(
+              opacity: _fadeAnim,
+              child: SingleChildScrollView(child: _buildContent(isDark)),
+            ),
+    );
+  }
+
+  // ── Drawer ───────────────────────────────────────────────────
+  Widget _buildDrawer(bool isDark) {
+    final cardColor = isDark ? AppColors.darkCard : Colors.white;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final subColor = isDark ? AppColors.darkSubText : AppColors.lightSubText;
+
+    return Drawer(
+      backgroundColor: cardColor,
+      child: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(gradient: AppColors.gradient),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.of(context).padding.top + 20,
+              20,
+              24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      width: 2,
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text('🌿', style: TextStyle(fontSize: 28)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'রুকইয়াহ',
+                  style: GoogleFonts.hindSiliguri(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  'কোরআন সুন্নাহ ভিত্তিক চিকিৎসা',
+                  style: GoogleFonts.hindSiliguri(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    _drawerBadge('📖 নোটস', _notes.length),
+                    const SizedBox(width: 8),
+                    _drawerBadge('📿 আয়াত', _ayat.length),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Menu items
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _menuItems.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                color: AppColors.primary.withValues(alpha: 0.07),
+                indent: 16,
+                endIndent: 16,
+              ),
+              itemBuilder: (context, i) {
+                final item = _menuItems[i];
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: (item['color'] as Color).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        item['icon'] as String,
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    item['title'] as String,
+                    style: GoogleFonts.hindSiliguri(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 13,
+                    color: subColor.withValues(alpha: 0.5),
+                  ),
+                  onTap: () => _navigateFromMenu(i),
+                );
+              },
+            ),
+          ),
+
+          // Close button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded, size: 16),
+                label: Text(
+                  'বন্ধ করুন',
+                  style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.w600),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: subColor,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _drawerBadge(String label, int count) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.2),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      '$label ($count)',
+      style: GoogleFonts.hindSiliguri(
+        fontSize: 11,
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
+  // ── AppBar ───────────────────────────────────────────────────
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: AppColors.primary,
+      elevation: 0,
+      flexibleSpace: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            'https://raw.githubusercontent.com/prodhan2/App_Backend_Data/main/MyApi/IslamicAppImages/rukaiyabg.webp',
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              decoration: BoxDecoration(gradient: AppColors.gradient),
+            ),
+          ),
+          Positioned(
+            top: -30,
+            right: -30,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -20,
+            left: -20,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+        ],
+      ),
+      leading: IconButton(
+        icon: const Icon(
+          Icons.arrow_back_ios_new,
+          color: Colors.black,
+          size: 18,
+        ),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'রুকইয়াহ',
+            style: GoogleFonts.hindSiliguri(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: Colors.black,
+              height: 1.2,
+            ),
+          ),
+          Text(
+            'কোরআন সুন্নাহ ভিত্তিক চিকিৎসা',
+            style: GoogleFonts.hindSiliguri(
+              fontSize: 10,
+              color: Colors.black,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(
+            Icons.refresh_rounded,
+            color: Colors.black,
+            size: 20,
+          ),
+          onPressed: _fetchData,
+        ),
+        IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.black, size: 22),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
+
+  Widget _buildLoading() => const SizedBox(
+    height: 300,
+    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+  );
+
+  Widget _buildContent(bool isDark) {
+    final cardColor = isDark ? AppColors.darkCard : Colors.white;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final subColor = isDark ? AppColors.darkSubText : AppColors.lightSubText;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('বিষয়সমূহ', isDark),
+          const SizedBox(height: 14),
+          if (_offline) ...[_offlineBanner(), const SizedBox(height: 12)],
+
+          // ── White-style feature cards ──────────────────────
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '🔍',
+            accentColor: const Color(0xFFDC2626),
+            title: 'সেলফ ডায়াগনেসিস',
+            subtitle:
+                'প্রশ্নের উত্তর দিয়ে নিজেই জানুন আপনার সমস্যার ধরন ও সমাধান',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RuqyahDiagnosisPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '❓',
+            accentColor: const Color(0xFF059669),
+            title: 'প্রশ্ন ও উত্তর',
+            subtitle: 'রুকইয়াহ বিষয়ক সাধারণ জিজ্ঞাসা ও বিস্তারিত জবাব',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RuqyahFaqPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '🤲',
+            accentColor: const Color(0xFFD97706),
+            title: 'মাসনুন আমল (নিরাপত্তার দোয়া)',
+            subtitle: 'সকাল-সন্ধ্যা ও হিফাজতের দোয়াসমূহ',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RuqyahDuaPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '🎵',
+            accentColor: const Color(0xFF7C3AED),
+            title: 'রুকইয়াহ অডিও',
+            subtitle: 'শোনুন এবং সুস্থ হন - রুকইয়াহ অডিও সংগ্রহ',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RuqyahAudioPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '📿',
+            accentColor: const Color(0xFF0891B2),
+            title: 'রুকইয়াহ আয়াত',
+            subtitle: 'জিন, যাদু ও বদনজর থেকে মুক্তির কোরআনিক আয়াত',
+            badge: _ayat.isNotEmpty ? '${_ayat.length} টি আয়াত' : null,
+            onTap: () => _openPage(isNotes: false),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '💧',
+            accentColor: const Color(0xFF06B6D4),
+            title: 'রুকইয়াহ গোসল',
+            subtitle: 'জিন, যাদু ও বদনজর থেকে মুক্তির গোসল পদ্ধতি',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RuqyahGosolPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '🌿',
+            accentColor: const Color(0xFF10B981),
+            title: 'ডিটক্স রুকইয়াহ',
+            subtitle: '৭ দিনের ডিটক্স রুকইয়াহ প্রোগ্রাম ও প্রস্তুতি',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RuqyahDetoxPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '📖',
+            accentColor: const Color(0xFF6C3CE1),
+            title: 'রুকইয়াহ নোটস',
+            subtitle: 'রুকইয়াহ সম্পর্কিত গুরুত্বপূর্ণ নোট ও গাইডলাইন',
+            badge: _notes.isNotEmpty ? '${_notes.length} টি নোট' : null,
+            onTap: () => _openPage(isNotes: true),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '🏥',
+            accentColor: const Color(0xFF0EA5E9),
+            title: 'Ruqyah Center Info',
+            subtitle: 'রুকইয়াহ সেন্টারের যোগাযোগ, ঠিকানা ও সোশ্যাল লিংক',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RuqyahPromotionPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildWhiteCard(
+            isDark: isDark,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            icon: '💻',
+            accentColor: const Color(0xFF2563EB),
+            title: 'Developer Info',
+            subtitle: 'Butterfly Devs টিম, প্রজেক্ট, সার্ভিস ও যোগাযোগ',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const RuqyahDeveloperInfoPage(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── White card (new style) ───────────────────────────────────
+  Widget _buildWhiteCard({
+    required bool isDark,
+    required Color cardColor,
+    required Color textColor,
+    required Color subColor,
+    required String icon,
+    required Color accentColor,
+    required String title,
+    required String subtitle,
+    String? badge,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: isDark ? 0.12 : 0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: accentColor.withValues(alpha: isDark ? 0.18 : 0.12),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              // Accent icon box
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Text(icon, style: const TextStyle(fontSize: 26)),
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Text
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.hindSiliguri(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.hindSiliguri(
+                        fontSize: 12,
+                        color: subColor,
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (badge != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          badge,
+                          style: GoogleFonts.hindSiliguri(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: accentColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Arrow
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: accentColor,
+                  size: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, bool isDark) => Text(
+    title,
+    style: GoogleFonts.hindSiliguri(
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      color: isDark ? AppColors.darkText : AppColors.lightText,
+    ),
+  );
+
+  Widget _offlineBanner() => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+    decoration: BoxDecoration(
+      color: Colors.orange.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.wifi_off_rounded, size: 15, color: Colors.orange),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'অফলাইন মোড - সংরক্ষিত তথ্য দেখাচ্ছে',
+            style: GoogleFonts.hindSiliguri(
+              fontSize: 11,
+              color: Colors.orange,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  void _openPage({required bool isNotes}) => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => RuqyahListPage(initialTab: isNotes ? 0 : 1),
+    ),
+  );
+}

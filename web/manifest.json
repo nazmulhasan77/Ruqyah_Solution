@@ -1,11 +1,11 @@
 {
-    "name": "ruqyah_solution",
-    "short_name": "ruqyah_solution",
+    "name": "Ruqyah Solution",
+    "short_name": "Ruqyah Solution",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Ruqyah Solution",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -22,3 +22,9 @@ class AppColors {
     end: Alignment.bottomRight,
   );
 }
+
+class AppAssets {
+  const AppAssets._();
+
+  static const String logo = 'assets/logo.png';
+}

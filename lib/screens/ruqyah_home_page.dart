@@ -229,7 +229,6 @@ class _RuqyahHomePageState extends State<RuqyahHomePage>
       backgroundColor: cardColor,
       child: Column(
         children: [
-          // Header
           Container(
             width: double.infinity,
             decoration: BoxDecoration(gradient: AppColors.gradient),
@@ -245,30 +244,29 @@ class _RuqyahHomePageState extends State<RuqyahHomePage>
                 Container(
                   width: 60,
                   height: 60,
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.4),
                       width: 2,
                     ),
                   ),
-                  child: const Center(
-                    child: Text('🌿', style: TextStyle(fontSize: 28)),
-                  ),
+                  child: Image.asset(AppAssets.logo, fit: BoxFit.contain),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'রুকইয়াহ',
-                  style: GoogleFonts.hindSiliguri(
+                  'Ruqyah Solution',
+                  style: GoogleFonts.poppins(
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),
                 ),
                 Text(
-                  'কোরআন সুন্নাহ ভিত্তিক চিকিৎসা',
-                  style: GoogleFonts.hindSiliguri(
+                  'Quran Sunnah based treatment',
+                  style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: Colors.white70,
                   ),
@@ -276,16 +274,14 @@ class _RuqyahHomePageState extends State<RuqyahHomePage>
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    _drawerBadge('📖 নোটস', _notes.length),
+                    _drawerBadge('Notes', _notes.length),
                     const SizedBox(width: 8),
-                    _drawerBadge('📿 আয়াত', _ayat.length),
+                    _drawerBadge('Ayat', _ayat.length),
                   ],
                 ),
               ],
             ),
           ),
-
-          // Menu items
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -335,8 +331,6 @@ class _RuqyahHomePageState extends State<RuqyahHomePage>
               },
             ),
           ),
-
-          // Close button
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
             child: SizedBox(
@@ -345,8 +339,8 @@ class _RuqyahHomePageState extends State<RuqyahHomePage>
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded, size: 16),
                 label: Text(
-                  'বন্ধ করুন',
-                  style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.w600),
+                  'Close',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: subColor,
@@ -379,6 +373,9 @@ class _RuqyahHomePageState extends State<RuqyahHomePage>
   // ── AppBar ───────────────────────────────────────────────────
   AppBar _buildAppBar() {
     return AppBar(
+      automaticallyImplyLeading: false,
+      leading: const SizedBox.shrink(),
+      leadingWidth: 0,
       backgroundColor: AppColors.primary,
       elevation: 0,
       flexibleSpace: Stack(
@@ -417,33 +414,30 @@ class _RuqyahHomePageState extends State<RuqyahHomePage>
           ),
         ],
       ),
-      leading: IconButton(
-        icon: const Icon(
-          Icons.arrow_back_ios_new,
-          color: Colors.black,
-          size: 18,
-        ),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      title: Row(
         children: [
-          Text(
-            'রুকইয়াহ',
-            style: GoogleFonts.hindSiliguri(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: Colors.black,
-              height: 1.2,
+          Container(
+            width: 34,
+            height: 34,
+            padding: const EdgeInsets.all(3),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
             ),
+            child: Image.asset(AppAssets.logo, fit: BoxFit.contain),
           ),
-          Text(
-            'কোরআন সুন্নাহ ভিত্তিক চিকিৎসা',
-            style: GoogleFonts.hindSiliguri(
-              fontSize: 10,
-              color: Colors.black,
-              height: 1.2,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Ruqyah Solution',
+              style: GoogleFonts.poppins(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Colors.black,
+                height: 1.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

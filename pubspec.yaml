@@ -1,5 +1,6 @@
 name: ruqyah_solution
-description: "A new Flutter project."
+description: "About
+Ruqyah Solution is an Islamic mobile app that provides Qur’an-based Ruqyah verses, authentic duas, and dhikr for spiritual protection and healing."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
